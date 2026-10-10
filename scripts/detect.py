@@ -43,7 +43,20 @@ PLATFORM_SITES: dict[str, str] = {
     "twitch.tv": "yt-dlp",
 }
 
-# --- Direct-file extensions (Content-Disposition or URL path suffix) ----------
+# --- Cloud drive sites (识别但不下载) ----------------------------------------
+
+CLOUD_DRIVE_SITES: dict[str, str] = {
+    "pan.baidu.com": "百度网盘",
+    "yun.baidu.com": "百度网盘",
+    "pan.quark.cn": "夸克网盘",
+    "www.aliyundrive.com": "阿里云盘",
+    "www.alipan.com": "阿里云盘",
+    "115.com": "115 网盘",
+    "115cdn.com": "115 网盘",
+    "cloud.189.cn": "天翼云盘",
+    "wl.123pan.com": "腾讯微云",
+    "wenku.baidu.com": "百度文库",
+}
 
 VIDEO_EXT = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".m4v", ".ts", ".m4s"}
 AUDIO_EXT = {".mp3", ".m4a", ".aac", ".flac", ".ogg", ".opus", ".wav", ".wma"}
@@ -63,18 +76,22 @@ def classify(url: str) -> dict:
     host = (parsed.hostname or "").lower()
     path = parsed.path.lower()
 
-    # 1) URI schemes first — they're unambiguous.
+    # 1) URI schemes first — magnet is metadata, not file download.
     if parsed.scheme == "magnet":
         return _result(
-            url, host="", kind="magnet", tool="aria2c",
-            dest_name=_magnet_name(url), verify_cmd="file",
-            install_hint=_aria2_hint(),
+            url, host="", kind="magnet", tool="none",
+            dest_name=_magnet_name(url), verify_cmd=None,
+            install_hint={},
+            user_action="请将此 magnet 链接复制到 qBittorrent、Transmission 或类似客户端。",
+            reason="magnet 是元数据 URI，需要 BT 客户端解析，非文件下载。",
         )
     if path.endswith(".torrent"):
         return _result(
-            url, host=host, kind="torrent", tool="aria2c",
+            url, host=host, kind="torrent", tool="curl",
             dest_name=_basename(path), verify_cmd="file",
-            install_hint=_aria2_hint(),
+            install_hint={},
+            user_action="下载 .torrent 文件本体；如需下载内容，用 BT 客户端打开此文件。",
+            reason="skill 只下载种子文件，不下载内容。",
         )
 
     # 2) Known platform sites → yt-dlp, regardless of extension.
@@ -88,25 +105,30 @@ def classify(url: str) -> dict:
                 install_hint=_ytdlp_hint(),
             )
 
-    # 3) Direct file link — decided by extension.
+    # 3) Cloud drive sites — 识别但不下载，用户手动转存。
+    for plat, provider in CLOUD_DRIVE_SITES.items():
+        if host == plat or host.endswith("." + plat):
+            return _result(
+                url, host=host, kind="cloud_drive", tool="none",
+                dest_name=None, verify_cmd=None,
+                install_hint={},
+                user_action=f"请手动转存到你的 {provider} 账号。",
+                reason="skill 不处理网盘内容，用户自己转存。",
+            )
+
+    # 4) Direct file link — decided by extension.
     ext = _first_ext(path)
     if ext:
         if ext in VIDEO_ALL:
             return _result(url, host, "direct_file", "curl",
                            _basename(path, default=f"download{ext}"),
                            _ffprobe_cmd())
-        if ext in TORRENT_EXT:
-            return _result(url, host, "torrent", "aria2c",
-                           _basename(path), "file", _aria2_hint())
         # archives, docs, images, unknown — all just curl
         return _result(url, host, "direct_file", "curl",
                        _basename(path, default="download"),
                        "file")
 
-    # 4) Fallback — host-based guess, then unknown.
-    if host and any(host.endswith(d) for d in (".org", ".com", ".net", ".info", ".xyz", ".dev")):
-        return _result(url, host, "unknown", "curl",
-                       dest_name="download", verify_cmd="file")
+    # 5) Fallback — unknown.
     return _result(url, host, "unknown", "curl",
                    dest_name="download", verify_cmd="file")
 
@@ -115,7 +137,10 @@ def classify(url: str) -> dict:
 
 
 def _result(url: str, host: str, kind: str, tool: str,
-            dest_name: str, verify_cmd: str, install_hint: dict | None = None) -> dict:
+            dest_name: str | None, verify_cmd: str | None,
+            install_hint: dict | None = None,
+            user_action: str | None = None,
+            reason: str | None = None) -> dict:
     return {
         "url": url,
         "host": host,
@@ -124,6 +149,8 @@ def _result(url: str, host: str, kind: str, tool: str,
         "dest_name": dest_name,
         "verify_cmd": verify_cmd,
         "install_hint": install_hint or {},
+        "user_action": user_action,
+        "reason": reason,
     }
 
 
