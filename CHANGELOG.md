@@ -24,7 +24,7 @@
 
 ### Design notes
 
-- **强制询问保存路径**：不默认 `D:\Download` 或任何"合理"位置。
+- **不默认到用户主下载目录**：URL 到手时，若用户没显式指定路径，则保存到临时目录（`$TMPDIR` 或 `~/.cache/down/<session-id>/`），而非 `D:\Download` 之类的"合理默认"。用户在触发消息里指定路径时优先。
 - **强制询问工具安装**：不静默 `uv tool install` 或 `winget install`。
 - **探测器不发网络**：URL 探测阶段无副作用，避免误触反爬与泄露 Referer。
 - **工具矩阵优先级**：curl → yt-dlp → aria2c，能用更轻量的解决就不用更重的。

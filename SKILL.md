@@ -132,7 +132,7 @@ Phase 5 — 回复用户
 ## 与旧 skill `file-download` 的关系
 
 `file-download` 是老版本，硬编码 `D:\Download`、假设 yt-dlp 存在。**本 skill 是它的正式替代**：
-- 保存路径强制询问（不再默认 D:\Download）。
+- 保存路径默认临时目录（不再默认 D:\Download；用户显式指定则优先）。
 - 工具安装强制询问（不再默认 `uv tool install`）。
 - 覆盖 torrent/magnet（file-download 不覆盖）。
 - 保留 file-download 的所有 X/Twitter 最佳实践。
