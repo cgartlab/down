@@ -5,7 +5,7 @@
 ## 这是什么
 
 Agent Skill（本仓库根目录 `SKILL.md`）。用户扔 URL 过来时激活：
-1. **确定保存路径**（用户明确说了就用那个；没说则默认临时目录，不询问）
+1. **确定保存路径**（用户显式指定 → 环境偏好 → 临时目录兜底；skill 不硬编码默认路径）
 2. **探测 URL 类型**（platform_video / direct_file / torrent / magnet / unknown）
 3. **选最小步骤工具**（curl → yt-dlp → aria2c 优先级）
 4. **安装缺失工具前先问**（不静默装）

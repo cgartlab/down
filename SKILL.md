@@ -32,10 +32,18 @@ metadata:
 
 ## URL 到手后的第一件事：确定保存路径
 
-- 用户**明确说了路径**（如 "下载到 D:\Movies"）→ 直接用那个路径。
-- 用户**没明确说** → 默认保存到**临时目录**（`$TMPDIR` 或 `~/.cache/down/<session-id>/`）。**不询问**——用户已经说过"没说明就存临时目录"是标准行为。
+**路径优先级（从上到下，先命中先赢）：**
 
-**例外**：如果用户在同一会话里对**另一个下载**说过保存路径，可提示"这次也存那里吗？"作为软性建议，但不用 `clarify` 阻塞。
+1. **用户在这次消息里明确说了路径** → 直接用（如"下载到 D:\Movies"）。
+2. **用户环境里有本机偏好** → 用偏好的路径。具体来源：
+   - Hermes memory 里明确的"用户本机下载偏好"（如 `D:\Download`）
+   - 或 skill 配置（未来 v0.2 支持 `~/.downrc`）
+   - 或环境变量 `DOWN_DEFAULT_DIR`
+3. **都没有** → 默认保存到**临时目录**（`$TMPDIR` 或 `~/.cache/down/<session-id>/`）。
+
+**不询问**——三种情况都是确定性的，不需要 `clarify` 阻塞用户。用户想改路径，直接说就行。
+
+**设计要点**：skill 本身**不硬编码任何默认路径**（不写死 D:\Download 也不写死 /tmp），它只提供"临时目录"这个通用的最终兜底。本机偏好由 agent 的 memory / config 决定，属于用户环境层，不属于 skill 逻辑。
 
 ## 三条不可让渡的规则
 
@@ -132,7 +140,7 @@ Phase 5 — 回复用户
 ## 与旧 skill `file-download` 的关系
 
 `file-download` 是老版本，硬编码 `D:\Download`、假设 yt-dlp 存在。**本 skill 是它的正式替代**：
-- 保存路径默认临时目录（不再默认 D:\Download；用户显式指定则优先）。
+- 保存路径**三级优先级**：用户显式指定 → 环境偏好（memory/config）→ 临时目录兜底。skill 不硬编码任何默认路径。
 - 工具安装强制询问（不再默认 `uv tool install`）。
 - 覆盖 torrent/magnet（file-download 不覆盖）。
 - 保留 file-download 的所有 X/Twitter 最佳实践。

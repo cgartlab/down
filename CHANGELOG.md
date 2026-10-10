@@ -24,7 +24,7 @@
 
 ### Design notes
 
-- **不默认到用户主下载目录**：URL 到手时，若用户没显式指定路径，则保存到临时目录（`$TMPDIR` 或 `~/.cache/down/<session-id>/`），而非 `D:\Download` 之类的"合理默认"。用户在触发消息里指定路径时优先。
+- **skill 不硬编码任何默认路径**：路径解析走三级优先级——用户显式指定 → 环境偏好（Hermes memory / `~/.downrc` / `DOWN_DEFAULT_DIR`）→ 临时目录兜底。skill 逻辑与用户本机偏好解耦：本机偏好是环境层配置，不是 skill 逻辑。
 - **强制询问工具安装**：不静默 `uv tool install` 或 `winget install`。
 - **探测器不发网络**：URL 探测阶段无副作用，避免误触反爬与泄露 Referer。
 - **工具矩阵优先级**：curl → yt-dlp → aria2c，能用更轻量的解决就不用更重的。
