@@ -74,6 +74,7 @@ agent：（加载本 skill）
 
 ## 版本
 
+- **v0.2.0**（2026-10-11）：能力边界明确化（skill 不做什么）。新增 `scripts/check_tools.py`（工具检查）和 `scripts/proxy_chain.py`（代理链解析）。detect.py 加 `cloud_drive` kind（10 个网盘）、`.torrent`→curl、magnet→none、`user_action`/`reason` 字段、`dest_name` 路径净化。SKILL.md 加 6 个新章节（能力边界 / Phase 2.5 代理兜底 / Phase 3.0 文件名冲突 / 网盘处理 / Magnet 处理 / 平台视频失败应对）。`references/commands-windows.md`（PowerShell 命令模板）。测试 15→58 用例。
 - **v0.1.0**（2026-10-10）：初版骨架。SKILL.md + detect.py + references + evals。
 
 ## License

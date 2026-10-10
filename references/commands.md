@@ -3,7 +3,11 @@
 所有命令都假设 caller 已经：
 1. 用 `clarify` 或对话确定了**保存路径 `<dest>`**（绝对路径）
 2. 用 `scripts/detect.py` 拿到了 `<kind>` / `<suggested_tool>` / `<dest_name>`
-3. 用户批准了必要的工具安装（如有）
+3. 用 `scripts/check_tools.py` 确认工具可用
+4. 用户批准了必要的工具安装（如有）
+
+**代理兜底**：如果直连失败，用 `python scripts/proxy_chain.py --json` 拿代理链，
+在命令后加 `--proxy <url>` 重试。详见 `references/tool-matrix.md` 的"代理参数速查"。
 
 ## 平台视频（platform_video → yt-dlp）
 
@@ -40,37 +44,43 @@ curl -L --fail \
 - `--retry 3` 三次重试（网络抖动很常见）
 - `--progress-bar` 一行进度条（无进度输出更清晰，`--progress-bar` 会覆盖默认）
 
-## Torrent 文件（torrent → aria2c）
+## Torrent 文件本体（torrent → curl）
+
+**v0.2 决策**：只下载 `.torrent` 文件本体（几 KB 到几 MB 的小文本文件），
+用户手动用 BT 客户端打开下载内容。不需要 aria2c。
 
 ```bash
-aria2c --continue \
-       --enable-mutex=yes \
-       --split=8 --min-split-size=1M \
-       --max-connection-per-server=8 \
-       --max-overall-download-limit=0 \
-       --save-session="<dest>/.aria2-session" \
-       -d "<dest>" \
-       "<url-or-local-path-to-.torrent>"
-```
-
-## Magnet 链接（magnet → aria2c）
-
-```bash
-aria2c --continue \
-       --bt-enable-lpd=true \
-       --bt-tracker="https://opentracker.i2k.io:6969/announce,https://tracker.opentrackr.org:1337/announce" \
-       --bt-request-peer-speed-limit=10M \
-       --bt-max-peers=0 \
-       --seed-ratio=0 \
-       --save-session="<dest>/.aria2-session" \
-       -d "<dest>" \
-       "<magnet-uri>"
+curl -L --fail \
+     --retry 3 --retry-delay 2 \
+     --progress-bar \
+     -o "<dest>/<dest_name>" \
+     "<url>"
 ```
 
 关键点：
-- `--seed-ratio=0`：下载完即停止，不做种（尊重版权，避免长期占用带宽）
-- `--bt-enable-lpd` 启用本地对等点发现
-- 如果磁力链接没有 tracker，用 `--bt-tracker` 补几个公共 tracker
+- 命令与 `direct_file` 一致，`.torrent` 文件就是普通 HTTP 文件
+- 下载完成后回复：`"下载完成 <dest>/<name>.torrent。如需下载内容，用 qBittorrent 等 BT 客户端打开此文件。"`
+
+## Magnet 链接（magnet → none，skill 不处理）
+
+skill 不处理 magnet。回复模板：
+
+```
+「这是 magnet 链接，需要 BT 客户端解析。请复制到：
+  - Windows: qBittorrent / Transmission
+  - macOS:   Transmission / qBittorrent
+  - Linux:   qBittorrent / Transmission / Deluge
+  或者告诉我是否有 .torrent 文件直链，我可以下载 .torrent 本体。」
+```
+
+## 网盘链接（cloud_drive → none，skill 不处理）
+
+skill 不处理网盘。回复模板：
+
+```
+「这个链接是 {provider}，skill 不处理网盘内容。
+  请把链接转存到你的网盘账号，需要其他帮助就说。」
+```
 
 ## 验证命令
 
@@ -107,6 +117,8 @@ sha256sum "<file>"   # 或 sha1sum，Windows 用 certutil -hashfile
 
 ## 回复模板
 
+### 下载成功
+
 ```
 ✅ 下载完成，验证通过：h264 1920×1080 + AAC，6:05，12.3 MB
 （该 URL 类型是 <kind>，用 <tool> 下载）
@@ -116,4 +128,14 @@ MEDIA:<absolute path>
 📁 保存位置：<dest>/<dest_name>
 ```
 
-Windows 上 MEDIA: 路径必须**双反斜杠或正斜杠**：`D:\Download\file.mp4` 或 `D:/Download/file.mp4`。
+Windows 上 MEDIA: 路径必须**双反斜杠或正斜杠**：`D:\\Download\\file.mp4` 或 `D:/Download/file.mp4`。
+
+### magnet / cloud_drive 不下载
+
+```
+📎 这是 {magnet|{provider}} 链接，skill 不处理。
+
+{user_action}
+
+如需其他帮助就说。
+```
