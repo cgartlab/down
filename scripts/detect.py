@@ -22,12 +22,10 @@ from __future__ import annotations
 
 import argparse
 import json
-import mimetypes
 import re
-import shlex
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 # --- Platform sites (yt-dlp handles these with its extractors) ----------------
 
@@ -129,6 +127,38 @@ def _result(url: str, host: str, kind: str, tool: str,
     }
 
 
+def _sanitize_filename(name: str) -> str:
+    """Sanitize a filename to prevent path traversal and shell injection.
+
+    Rules (applied in order):
+      1. URL-decode common escapes (%20, %2F, %2f, %2e, ...)
+      2. Replace path separators / and \\ with _
+      3. Reject '..' path traversal
+      4. Strip control characters (0x00-0x1F, 0x7F)
+      5. Replace shell metacharacters (`$&|;<>(){}[]*?"' and \\\\) with _
+      6. Truncate to 200 chars
+      7. Empty result falls back to 'download'
+    """
+    if not name:
+        return "download"
+    # 1. URL-decode (unquote handles %XX, but not %2e -> . separately)
+    name = unquote(name)
+    # 2. Path separators
+    name = name.replace("/", "_").replace("\\", "_")
+    # 3. Path traversal — '..' after separator replacement becomes '_._.'
+    if name.startswith("_._.") or name.endswith("_._.") or "_._." in name:
+        # Extract the leaf-like segment, then fall back if still suspicious
+        name = name.replace("_._.", "_")
+    # 4. Control characters
+    name = re.sub(r"[\x00-\x1f\x7f]", "", name)
+    # 5. Shell metacharacters — replace with _
+    name = re.sub(r"[`$&|;<>(){}[\]*?\"'\\]", "_", name)
+    # 6. Truncate
+    name = name[:200]
+    # 7. Empty fallback
+    return name.strip() or "download"
+
+
 def _basename(path: str, default: str | None = None) -> str:
     name = Path(path).name
     if not name or name == "/":
@@ -136,7 +166,7 @@ def _basename(path: str, default: str | None = None) -> str:
     # URL-decode common escapes
     for enc in ("%20", "%2F", "%2f"):
         name = name.replace(enc, " ")
-    return name.strip() or (default or "download")
+    return _sanitize_filename(name) or (default or "download")
 
 
 def _first_ext(path: str) -> str | None:
@@ -169,18 +199,18 @@ def _slugified_dest(url: str, ext: str) -> str:
     # Twitter/X/Bilibili/etc.: pull a status/post id from the path
     m = re.search(r"/(?:status|video|watch|v)(?:/)?(\d+)", parsed.path)
     if m:
-        return f"{host}_{m.group(1)}{ext}"
+        return _sanitize_filename(f"{host}_{m.group(1)}{ext}")
     m = re.search(r"([A-Za-z0-9_-]{6,12})$", parsed.path.rstrip("/"))
     if m:
-        return f"{host}_{m.group(1)}{ext}"
-    return f"{host}download{ext}"
+        return _sanitize_filename(f"{host}_{m.group(1)}{ext}")
+    return _sanitize_filename(f"{host}download{ext}")
 
 
 def _magnet_name(magnet: str) -> str:
     m = re.search(r"dn=([^&]+)", magnet)
     if m:
         from urllib.parse import unquote_plus
-        return unquote_plus(m.group(1))
+        return _sanitize_filename(unquote_plus(m.group(1)))
     return "magnet-download"
 
 
@@ -195,9 +225,11 @@ def _aria2_hint() -> dict:
     return {
         "name": "aria2",
         "purpose": "torrent/magnet downloads (curl/yt-dlp cannot do this)",
-        "install_windows": "winget install -e --id aria2.aria2",
-        "install_linux": "apt install -y aria2  (or dnf install -y aria2)",
-        "install_macos": "brew install aria2",
+        "install_by_platform": {
+            "windows": "winget install -e --id aria2.aria2",
+            "linux": "apt install -y aria2  (or dnf install -y aria2)",
+            "macos": "brew install aria2",
+        },
         "size_mb": 4,
         "license": "Apache-2.0",
     }
@@ -207,7 +239,11 @@ def _ytdlp_hint() -> dict:
     return {
         "name": "yt-dlp",
         "purpose": "platform video/audio downloads (YouTube, X/Twitter, Bilibili, ...)",
-        "install": "uv tool install yt-dlp",
+        "install_by_platform": {
+            "windows": "uv tool install yt-dlp",
+            "linux": "uv tool install yt-dlp  (or pipx install yt-dlp)",
+            "macos": "uv tool install yt-dlp  (or brew install yt-dlp)",
+        },
         "size_mb": 3,
         "license": "Unlicense",
     }
