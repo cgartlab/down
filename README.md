@@ -35,7 +35,8 @@ down/
 ├── evals/
 │   └── test_detect.py     # detect.py 单元测试（stdlib unittest）
 ├── docs/
-│   └── USAGE.md           # 用户使用文档
+│   ├── USAGE.md           # 用户使用文档
+│   └── PLAN-v0.2.md       # v0.2 开发计划（单一真源）
 └── assets/templates/      # 回复模板（v0.1 空，v0.2 补）
 ```
 
@@ -45,7 +46,7 @@ down/
 ```
 用户："帮我下载 https://x.com/foo/status/123/video/1"
 agent：（加载本 skill）
-        1. clarify 问保存路径
+        1. 按三级优先级确定保存路径（用户显式指定 → 环境偏好 → 临时目录兜底，不询问）
         2. python scripts/detect.py --url <url>  → kind=platform_video, tool=yt-dlp
         3. 检查 yt-dlp 是否装了：yt-dlp --version
         4. 若缺失 → 询问用户"装不装"
@@ -58,7 +59,7 @@ agent：（加载本 skill）
 
 `file-download` 是老版本，硬编码 `D:\Download`、假设 yt-dlp 存在、不覆盖 torrent/magnet。
 本 skill 是**正式替代**：
-- 保存路径强制询问
+- 保存路径按三级优先级解析（用户显式指定 → 环境偏好 → 临时目录兜底，不询问）
 - 工具安装强制询问
 - 覆盖 torrent/magnet（新增）
 - 保留 X/Twitter 最佳实践（`--no-playlist`、`http-*` 格式优先等）

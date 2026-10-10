@@ -6,7 +6,7 @@
 
 ## [Unreleased]
 
-- v0.1.0 初版骨架
+（v0.2.0 开发中——见 `docs/PLAN-v0.2.md`）
 
 ## [0.1.0] - 2026-10-10
 
@@ -20,7 +20,8 @@
 - **references/anti-bot.md**：Nitroflare / Alfafile / CGPersia 类站点的识别与降级。
 - **AGENTS.md**：本仓库编码约定（3 条元规则 + 提交规约 + 自检命令）。
 - **README.md**：快速上手与目录结构。
-- **evals/test_detect.py**：detect.py 单元测试（stdlib unittest，11 个用例覆盖所有 kind 与边界）。
+- **docs/USAGE.md**：用户视角的使用文档（常见问题 + 开发者上手）。
+- **evals/test_detect.py**：detect.py 单元测试（stdlib unittest，17 个用例覆盖所有 kind 与边界）。
 
 ### Design notes
 
