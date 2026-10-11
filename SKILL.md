@@ -2,7 +2,7 @@
 name: down
 description: 'Analyze a URL and download it with minimal steps.'
 version: 0.2.0
-author: cgart, Hermes Agent
+author: cgartlab, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
