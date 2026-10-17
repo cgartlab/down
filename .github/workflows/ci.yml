@@ -1,0 +1,22 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 单元测试（AGENTS.md 一致性不变量）
+        run: python -m unittest discover -s evals -v
+      - name: 只读探测器冒烟（detect.py / check_tools.py：不发网络、不落盘、不安装）
+        run: |
+          python scripts/detect.py --url "https://youtube.com/watch?v=dQw4w9WgXcQ" >/dev/null
+          python scripts/detect.py --url "https://example.com/file.mp4" >/dev/null
+          python scripts/detect.py --url "https://pan.baidu.com/s/abc" >/dev/null
+          python scripts/detect.py --url "magnet:?xt=urn:btih:abc&dn=test" >/dev/null
+          python scripts/check_tools.py --json >/dev/null
