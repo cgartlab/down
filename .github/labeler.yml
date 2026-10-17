@@ -1,19 +1,24 @@
 # down 自动标签：按分支名 + 实际文件结构（替代通用站点模板，修 #2）
 # 由 .github/workflows/auto-label.yml（actions/labeler@v5, sync-labels) 驱动
+# 注意：changed-files 必须用 any-glob-to-any-file 包装（labeler v5 语法）
 fix:
   - head-branch: ["^fix"]
 feat:
   - head-branch: ["^feat", "^feature"]
 docs:
   - head-branch: ["^docs"]
-  - changed-files: ["**/*.md"]
+  - changed-files:
+      - any-glob-to-any-file: ["**/*.md"]
 chore:
   - head-branch: ["^chore"]
 deps:
   - head-branch: ["^dependabot"]
 infra:
-  - changed-files: [".github/**"]
+  - changed-files:
+      - any-glob-to-any-file: [".github/**"]
 scripts:
-  - changed-files: ["scripts/**"]
+  - changed-files:
+      - any-glob-to-any-file: ["scripts/**"]
 tests:
-  - changed-files: ["evals/**"]
+  - changed-files:
+      - any-glob-to-any-file: ["evals/**"]
