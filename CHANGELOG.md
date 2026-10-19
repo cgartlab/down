@@ -4,7 +4,11 @@
 
 项目采用 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+> **版本间导航**：远端目前只有 `v0.2.0` 一个 tag，`0.1.0` 没有对应 tag。compare 链接需要「上一版本」与「当前版本」两个真实 tag 才能构成，因此本文件**不提供 compare 链接**——不编造起点。补打 `v0.1.0` 需要能定位到当时发布的 commit，属独立决策。
+
 ## [0.2.0] - 2026-10-11
+
+> **一句话概括**：这版给 skill 划清了**能力边界**——只做文件下载，不做搜索、不拉 magnet 内容、不下网盘文件、不破解反爬；同时新增代理兜底链与文件名冲突检查。**需要你注意一处不兼容**：magnet 链接从「用 aria2c 试图下载」改为「报告 `suggested_tool=none`，由你用 BT 客户端处理」；`install_hint` 字段结构也变了（见下方 Changed / Breaking 段）。
 
 ### Added
 
@@ -70,6 +74,8 @@
 - **install_hint 字段**：`install_windows`/`install_linux`/`install_macos` 改为 `install_by_platform: {windows, linux, macos}`。v0.1.0 客户端如果读旧字段会拿到 `None`。
 
 ## [0.1.0] - 2026-10-10
+
+> **一句话概括**：首次发布——一个「扔 URL 进来、用最少工具步骤下载到本地」的 skill。**你不需要做任何事**，按 `SKILL.md` 的 Phase 流程使用即可；需要 yt-dlp / curl 等工具时按提示自行安装（skill 不会静默安装）。
 
 ### Added
 
