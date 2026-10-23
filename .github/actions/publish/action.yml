@@ -1,0 +1,241 @@
+name: Publish skill to registries
+description: >-
+  把技能发布到 ClawHub 与 SkillHub。发布逻辑内联在本仓库，不依赖外部
+  reusable workflow —— 每个 skill 仓库自带这份 action，发布流程由项目自己掌控。
+
+  ClawHub 接受命令行 --slug/--name/--version，不需要 SKILL.md 带 registry 字段；
+  SkillHub 的 CLI 直接读 SKILL.md 里的 slug/displayName，缺了会硬失败，所以这里
+  复制一份到暂存目录再注入那三个字段。
+
+inputs:
+  skill-dir:
+    description: 技能目录（必须包含 SKILL.md）
+    required: false
+    default: "."
+  slug:
+    description: registry slug（kebab-case，3-128 字符）
+    required: true
+  display-name:
+    description: registry 上显示的名称
+    required: true
+  version:
+    description: 要发布的 SemVer；留空则从 SKILL.md frontmatter 读取
+    required: false
+    default: ""
+  publish-clawhub:
+    description: '"true" 表示发布到 ClawHub'
+    required: false
+    default: "true"
+  publish-skillhub:
+    description: '"true" 表示发布到 SkillHub'
+    required: false
+    default: "true"
+  dry-run:
+    description: '"true" 只校验与打包，不联系任何 registry'
+    required: false
+    default: "false"
+  clawhub-token:
+    description: ClawHub API token（clh_...）
+    required: false
+    default: ""
+  skillhub-api-key:
+    description: SkillHub community token（skh_...）
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Resolve version and validate metadata
+      id: meta
+      shell: bash
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        SKILL_DIR: ${{ inputs.skill-dir }}
+        SLUG: ${{ inputs.slug }}
+      run: |
+        set -euo pipefail
+        SKILL_MD="${SKILL_DIR%/}/SKILL.md"
+        if [ ! -f "$SKILL_MD" ]; then
+          echo "::error::no SKILL.md at $SKILL_MD"
+          exit 1
+        fi
+
+        if [ -n "$INPUT_VERSION" ]; then
+          VERSION="$INPUT_VERSION"
+        else
+          # 只看 frontmatter（前两个 --- 之间）。两种写法都接受：
+          #   version: 0.7.1              （顶层）
+          #   metadata:
+          #     version: "0.1.1"          （嵌套）
+          VERSION="$(awk '
+            NR==1 && $0!="---" { exit }
+            NR>1 && $0=="---" { exit }
+            NR>1 && /^version:[[:space:]]*/ {
+              sub(/^version:[[:space:]]*/, ""); gsub(/["\047 ]/, ""); print; exit
+            }
+            NR>1 && /^metadata:[[:space:]]*$/ { inmeta=1; next }
+            inmeta && /^  version:[[:space:]]*/ {
+              sub(/^  version:[[:space:]]*/, ""); gsub(/["\047 ]/, ""); print; exit
+            }
+            inmeta && /^[^[:space:]]/ { inmeta=0 }
+          ' "$SKILL_MD")"
+        fi
+
+        if [ -z "$VERSION" ]; then
+          echo "::error::could not resolve a version — set 'version:' (top level or under metadata:) in SKILL.md frontmatter, or pass inputs.version"
+          exit 1
+        fi
+        if ! printf '%s' "$VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+          echo "::error::version '$VERSION' is not valid SemVer"
+          exit 1
+        fi
+        if ! printf '%s' "$SLUG" | grep -Eq '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'; then
+          echo "::error::slug '$SLUG' is not kebab-case"
+          exit 1
+        fi
+
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        echo "::notice::publishing $SLUG@$VERSION"
+
+    # ---------------- ClawHub ----------------
+    - name: ClawHub — install CLI
+      if: inputs.publish-clawhub == 'true'
+      shell: bash
+      run: npm install --global clawhub
+
+    - name: ClawHub — check token
+      if: inputs.publish-clawhub == 'true'
+      shell: bash
+      env:
+        CLAWHUB_TOKEN: ${{ inputs.clawhub-token }}
+      run: |
+        if [ -z "$CLAWHUB_TOKEN" ]; then
+          echo "::error::CLAWHUB_TOKEN secret is not configured"
+          exit 1
+        fi
+
+    - name: ClawHub — authenticate
+      if: inputs.publish-clawhub == 'true'
+      shell: bash
+      env:
+        CLAWHUB_TOKEN: ${{ inputs.clawhub-token }}
+      run: |
+        clawhub login --token "$CLAWHUB_TOKEN" --no-input
+        clawhub whoami
+
+    - name: ClawHub — publish
+      if: inputs.publish-clawhub == 'true'
+      shell: bash
+      env:
+        SKILL_DIR: ${{ inputs.skill-dir }}
+        SLUG: ${{ inputs.slug }}
+        DISPLAY_NAME: ${{ inputs.display-name }}
+        VERSION: ${{ steps.meta.outputs.version }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        set -euo pipefail
+        ARGS=( "$SKILL_DIR" --slug "$SLUG" --name "$DISPLAY_NAME" --version "$VERSION" )
+        if [ "$DRY_RUN" = "true" ]; then
+          ARGS+=(--dry-run)
+        fi
+        clawhub publish "${ARGS[@]}"
+        echo "::notice::ClawHub: $SLUG@$VERSION $( [ "$DRY_RUN" = "true" ] && echo '(dry run)' || echo 'published' )"
+
+    # ---------------- SkillHub ----------------
+    - name: SkillHub — stage skill with registry metadata
+      if: inputs.publish-skillhub == 'true'
+      shell: bash
+      env:
+        SKILL_DIR: ${{ inputs.skill-dir }}
+        SLUG: ${{ inputs.slug }}
+        DISPLAY_NAME: ${{ inputs.display-name }}
+        VERSION: ${{ steps.meta.outputs.version }}
+      run: |
+        set -euo pipefail
+        STAGE="$RUNNER_TEMP/skillhub-stage"
+        rm -rf "$STAGE"
+        mkdir -p "$STAGE"
+
+        # SkillHub 只接受已知文件类型，会以 400 拒绝无扩展名文件（如 LICENSE），
+        # 也不该把 .git / .github 打进发布包。用 tar 精确排除后，再把残留的
+        # 无扩展名文件清掉并记录下来。
+        tar -C "${SKILL_DIR%/}" \
+          --exclude='./.*' \
+          --exclude='./node_modules' \
+          -cf - . | tar -C "$STAGE" -xf -
+
+        removed="$(find "$STAGE" -type f ! -name '*.*' -print -delete)"
+        if [ -n "$removed" ]; then
+          echo "::warning::SkillHub 不接受无扩展名文件，已从发布包剔除: $removed"
+        fi
+
+        python3 - "$STAGE/SKILL.md" "$SLUG" "$DISPLAY_NAME" "$VERSION" <<'PY'
+        import sys
+        from pathlib import Path
+
+        path = Path(sys.argv[1])
+        slug, display, version = sys.argv[2], sys.argv[3], sys.argv[4]
+        text = path.read_text(encoding="utf-8")
+
+        if not text.startswith("---\n"):
+            raise SystemExit("SKILL.md does not start with YAML frontmatter")
+
+        # 先丢掉已有的 slug/displayName/version，保证写进去的是我们的值。
+        lines = text.split("\n")
+        end = next(i for i in range(1, len(lines)) if lines[i] == "---")
+        body = [l for l in lines[1:end]
+                if not l.startswith(("slug:", "displayName:", "version:"))]
+        injected = [f"slug: {slug}", f"displayName: {display}", f"version: {version}"]
+        new = "\n".join(["---"] + injected + body + lines[end:])
+        path.write_text(new, encoding="utf-8")
+        print(f"injected slug={slug} displayName={display} version={version}")
+        PY
+
+    - name: SkillHub — install CLI
+      if: inputs.publish-skillhub == 'true'
+      shell: bash
+      # 先下载再执行，不 pipe-to-bash（CWE-494）。
+      run: |
+        set -euo pipefail
+        curl -fsSL https://skillhub.cn/install/install.sh -o "$RUNNER_TEMP/skillhub-install.sh"
+        test -s "$RUNNER_TEMP/skillhub-install.sh"
+        bash "$RUNNER_TEMP/skillhub-install.sh" --cli-only
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+    - name: SkillHub — check token
+      if: inputs.publish-skillhub == 'true'
+      shell: bash
+      env:
+        SKILLHUB_API_KEY: ${{ inputs.skillhub-api-key }}
+      run: |
+        if [ -z "$SKILLHUB_API_KEY" ]; then
+          echo "::error::SKILLHUB_API_KEY secret is not configured"
+          exit 1
+        fi
+
+    - name: SkillHub — authenticate
+      if: inputs.publish-skillhub == 'true'
+      shell: bash
+      env:
+        SKILLHUB_API_KEY: ${{ inputs.skillhub-api-key }}
+      run: |
+        skillhub login --key "$SKILLHUB_API_KEY"
+        skillhub auth whoami
+
+    - name: SkillHub — publish
+      if: inputs.publish-skillhub == 'true'
+      shell: bash
+      env:
+        SLUG: ${{ inputs.slug }}
+        VERSION: ${{ steps.meta.outputs.version }}
+        DRY_RUN: ${{ inputs.dry-run }}
+      run: |
+        set -euo pipefail
+        STAGE="$RUNNER_TEMP/skillhub-stage"
+        ARGS=( "$STAGE" --version "$VERSION" )
+        if [ "$DRY_RUN" = "true" ]; then
+          ARGS+=(--dry-run)
+        fi
+        skillhub publish "${ARGS[@]}"
+        echo "::notice::SkillHub: $SLUG@$VERSION $( [ "$DRY_RUN" = "true" ] && echo '(dry run)' || echo 'published' )"

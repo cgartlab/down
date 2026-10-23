@@ -1,15 +1,11 @@
 name: Publish to skill registries
 
-# Publishes this skill to ClawHub and SkillHub whenever a GitHub Release is
-# published. The work lives in the reusable workflow at
-# cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml so a fix lands
-# once for every skill repo.
+# 发布逻辑内联在本仓库的 .github/actions/publish，不依赖跨仓库 reusable
+# workflow —— public 仓库无法调用 private 仓库的 workflow，那样会让发布静默失效。
 #
-# Prerequisites (already configured as repo secrets):
-#   CLAWHUB_TOKEN, SKILLHUB_API_KEY
-#
-# Manual run: "Run workflow" republishes the default branch.
-# Set dry_run=true to validate and package without contacting either registry.
+# 触发：GitHub Release 发布时自动发到 ClawHub / SkillHub；也可手动 dispatch
+# 重发当前 SKILL.md 的版本（dry_run=true 只校验打包；半途失败时可用两个开关
+# 只补发其中一侧）。
 
 on:
   release:
@@ -20,21 +16,33 @@ on:
         description: "Validate and package only - do not publish"
         type: boolean
         default: false
+      publish_clawhub:
+        description: "Publish to ClawHub（半途失败时用来只补发另一半）"
+        type: boolean
+        default: true
+      publish_skillhub:
+        description: "Publish to SkillHub（半途失败时用来只补发另一半）"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
 
 jobs:
   publish:
-    uses: cgartlab/cgartlab-skills/.github/workflows/publish-skill.yml@main
-    with:
-      skill-dir: "."
-      slug: cgartlab-down
-      display-name: "CGArtLab Down"
-      version: ""
-      publish-clawhub: true
-      publish-skillhub: true
-      dry-run: ${{ inputs.dry_run || false }}
-    secrets:
-      CLAWHUB_TOKEN: ${{ secrets.CLAWHUB_TOKEN }}
-      SKILLHUB_API_KEY: ${{ secrets.SKILLHUB_API_KEY }}
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publish to ClawHub / SkillHub
+        uses: ./.github/actions/publish
+        with:
+          slug: cgartlab-down
+          display-name: "CGArtLab Down"
+          dry-run: ${{ inputs.dry_run }}
+          publish-clawhub: ${{ inputs.publish_clawhub }}
+          publish-skillhub: ${{ inputs.publish_skillhub }}
+          clawhub-token: ${{ secrets.CLAWHUB_TOKEN }}
+          skillhub-api-key: ${{ secrets.SKILLHUB_API_KEY }}
