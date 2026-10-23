@@ -54,7 +54,7 @@ skill 只做文件下载，不越界：
 1. **用户在这次消息里明确说了路径** → 直接用（如"下载到 D:\Movies"）。
 2. **用户环境里有本机偏好** → 用偏好的路径。具体来源：
    - Hermes memory 里明确的"用户本机下载偏好"（如 `D:\Download`）
-   - 或 skill 配置（未来 v0.2 支持 `~/.downrc`）
+   - 或 skill 配置（`~/.downrc`，见 Phase 2.5 代理兜底）
    - 或环境变量 `DOWN_DEFAULT_DIR`
 3. **都没有** → 默认保存到**临时目录**（`$TMPDIR` 或 `~/.cache/down/<session-id>/`）。
 
