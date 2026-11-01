@@ -6,10 +6,10 @@ author: cgartlab, Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
+  kind: skill
   hermes:
     tags: [download, yt-dlp, aria2, curl, magnet, torrent, cloud-drive]
-    related_skills: [file-download, blocked-page-recovery]
----
+    related_skills: [file-download, blocked-page-recovery]---
 
 # Down — 万能下载 skill
 
