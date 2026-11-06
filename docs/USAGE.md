@@ -10,7 +10,7 @@
 Agent 会：
 1. 决定保存到哪儿（用户显式指定 → 环境偏好 → 临时目录兜底）
 2. 探测 URL 是什么类型
-3. 挑最小步骤的工具（curl / yt-dlp / aria2c）
+3. 挑最小步骤的工具（curl → yt-dlp；aria2c 仅在用户明确要下 BT 内容时才需要）
 4. 如果工具缺失，先问你装不装
 5. 下载 + 验证 + 交付
 
@@ -31,14 +31,14 @@ Agent 会：
 
 ```bash
 # Windows (git-bash) / Linux / macOS
-cd D:/2-Area/github-repos/down
+cd D:/github-repos/down
 python --version  # 3.9+
 ```
 
 ### 运行单元测试
 
 ```bash
-python -m unittest evals.test_detect -v
+python -m unittest discover -s evals -v
 ```
 
 ### 手工冒烟
@@ -91,16 +91,21 @@ down/
 ├── CHANGELOG.md          # 变更日志
 ├── LICENSE               # MIT
 ├── docs/
-│   └── USAGE.md          # 本文件
+│   ├── USAGE.md          # 本文件
+│   └── PLAN-v0.2.md      # v0.2 开发计划
 ├── scripts/
-│   └── detect.py         # URL 探测器（stdlib only）
+│   ├── detect.py         # URL 探测器（stdlib only）
+│   ├── check_tools.py    # 工具可用性检查（stdlib only）
+│   └── proxy_chain.py    # 代理链解析（stdlib only）
 ├── references/
 │   ├── tool-matrix.md    # 工具选择规则
 │   ├── detectors.md      # detect.py 契约
-│   ├── commands.md       # 命令配方
+│   ├── commands.md       # 命令配方（POSIX）
+│   ├── commands-windows.md # 命令配方（PowerShell）
 │   └── anti-bot.md       # 反爬识别
-├── evals/
-│   ├── __init__.py
-│   └── test_detect.py    # 单元测试（stdlib unittest）
-└── assets/templates/     # 回复模板（v0.1 空）
+└── evals/
+    ├── __init__.py
+    ├── test_detect.py    # 单元测试（stdlib unittest）
+    ├── test_check_tools.py
+    └── test_proxy_chain.py
 ```

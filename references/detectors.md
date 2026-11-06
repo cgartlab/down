@@ -90,7 +90,7 @@
 
 ## 测试
 
-`evals/test_detect.py` 覆盖 28 个用例：
+`evals/test_detect.py` 覆盖 41 个用例：
 - 每个 kind 至少 1 个 URL（platform_video 6 个 / direct_file 4 个 / torrent 1 / magnet 2 / cloud_drive 11 / unknown 2）
 - YouTube `?v=` 与 youtu.be 短链的 id 提取
 - X/Twitter status id 提取

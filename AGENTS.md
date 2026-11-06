@@ -39,7 +39,7 @@ skill 只做文件下载，不越界：
 ## 改本仓库时
 
 - **提交规约**：conventional commits（`feat` / `fix` / `docs` / `chore` / `test` / `refactor`）；body 讲 WHY。
-- **版本策略**：`0.1.0` 与 `0.2.0` 均已发布（远端 tag 仅 `v0.2.0`；`0.1.0` 无 tag）。v0.3 尚未开始，正在进行的变更记入 `CHANGELOG.md` 的 `[Unreleased]`（当前该章节不存在，说明没有未发布变更）。语义版本遵循 semver。
+- **版本策略**：`0.1.0` 与 `0.2.0` 均已发布（远端 tag 仅 `v0.2.0`；`0.1.0` 无 tag）。v0.3 尚未开始，未发版的变更记入 `CHANGELOG.md` 的 `[Unreleased]`（当前记录了发布链路内联到仓库内 action 的变更）。语义版本遵循 semver。
 - **改探测器要同步**：改 `detect.py` 的判定逻辑 → 同步 `references/detectors.md` 的判定表 → 同步 `evals/test_detect.py` 的测试用例。三处不一致即为漂移。
 - **不要在 SKILL.md 复述 references 的细节**：SKILL.md 只做**路由**（读哪个文件）+ **流程**（Phase 顺序）+ 元规则 + 能力边界。所有命令配方、判定表、站点清单都在 references 里。
 - **加规则要配对减规则**：往 SKILL.md 或 AGENTS.md 加条文时必须同时指出可删除或合并的旧条文。文档膨胀是唯一刹车。
